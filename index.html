@@ -1,0 +1,1342 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Simulador y Evaluador de Cableado UTP TIA-568 - Prof. Berdun A.</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Phosphor Icons for symbols -->
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+  <style>
+    /* Continuous Diagonal Watermark Background */
+    .watermark-bg {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      pointer-events: none;
+      overflow: hidden;
+      display: flex;
+      flex-wrap: wrap;
+      align-content: flex-start;
+      opacity: 0.075;
+      user-select: none;
+    }
+    .watermark-text {
+      font-size: 1.65rem;
+      font-weight: 900;
+      color: #ffffff;
+      white-space: nowrap;
+      transform: rotate(-28deg);
+      margin: 3.5rem 2.8rem;
+      letter-spacing: 0.12em;
+      font-family: monospace, sans-serif;
+      text-transform: uppercase;
+    }
+
+    /* Custom wire striped patterns using pure CSS */
+    .wire-white-green {
+      background: repeating-linear-gradient(45deg, #ffffff, #ffffff 5px, #16a34a 5px, #16a34a 10px);
+    }
+    .wire-green {
+      background-color: #16a34a;
+    }
+    .wire-white-orange {
+      background: repeating-linear-gradient(45deg, #ffffff, #ffffff 5px, #ea580c 5px, #ea580c 10px);
+    }
+    .wire-orange {
+      background-color: #ea580c;
+    }
+    .wire-white-blue {
+      background: repeating-linear-gradient(45deg, #ffffff, #ffffff 5px, #2563eb 5px, #2563eb 10px);
+    }
+    .wire-blue {
+      background-color: #2563eb;
+    }
+    .wire-white-brown {
+      background: repeating-linear-gradient(45deg, #ffffff, #ffffff 5px, #78350f 5px, #78350f 10px);
+    }
+    .wire-brown {
+      background-color: #78350f;
+    }
+
+    /* Realistic LED Glow Effects */
+    .led-off {
+      background-color: #0f172a;
+      box-shadow: inset 0 2px 4px rgba(0,0,0,0.9);
+      border: 1px solid #334155;
+    }
+    .led-on-green {
+      background-color: #22c55e !important;
+      box-shadow: 0 0 12px #22c55e, 0 0 24px #22c55e, inset 0 0 4px #bbf7d0;
+      border-color: #bbf7d0 !important;
+    }
+    .led-on-amber {
+      background-color: #f59e0b !important;
+      box-shadow: 0 0 12px #f59e0b, 0 0 24px #f59e0b, inset 0 0 4px #fef08a;
+      border-color: #fef08a !important;
+    }
+    .led-on-red {
+      background-color: #ef4444 !important;
+      box-shadow: 0 0 12px #ef4444, 0 0 24px #ef4444, inset 0 0 4px #fecaca;
+      border-color: #fecaca !important;
+    }
+  </style>
+</head>
+<body class="bg-slate-950 text-slate-100 font-sans min-h-screen flex flex-col antialiased relative selection:bg-cyan-500 selection:text-white">
+
+  <div class="watermark-bg" aria-hidden="true" id="watermarkContainer">
+    <!-- Repetitions generated via script or inline -->
+  </div>
+
+  <header class="bg-slate-900/90 backdrop-blur border-b border-slate-800 sticky top-0 z-40 px-4 py-3 shadow-md">
+    <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="p-2 bg-cyan-600 rounded-lg text-white shadow-lg shadow-cyan-600/30">
+          <i class="ph-bold ph-plug text-2xl"></i>
+        </div>
+        <div>
+          <h1 class="text-lg md:text-xl font-bold tracking-tight text-white flex items-center gap-2">
+            Laboratorio UTP TIA-568
+            <span class="text-xs font-semibold px-2 py-0.5 rounded bg-cyan-950 border border-cyan-700 text-cyan-300">Prof. Berdun A.</span>
+          </h1>
+          <p class="text-xs text-slate-400">Simulador de Conectorizado RJ45, Testeo Master/Remote y Certificación</p>
+        </div>
+      </div>
+
+      <!-- Live timer and quick info badge -->
+      <div class="flex items-center gap-2 bg-slate-950/80 px-3.5 py-1.5 rounded-xl border border-slate-800 shadow-inner">
+        <div class="flex items-center gap-2 text-slate-300 text-sm">
+          <i class="ph-bold ph-clock text-cyan-400 animate-pulse"></i>
+          <span class="text-xs uppercase text-slate-400 font-medium">Tiempo:</span>
+          <span id="examTimer" class="font-mono font-bold text-cyan-300 text-base">00:00</span>
+        </div>
+        <div class="h-4 w-px bg-slate-800 mx-1"></div>
+        <button id="btnToggleTimer" class="text-xs px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded font-medium transition">
+          Pausar
+        </button>
+        <button id="btnResetTimer" class="text-xs px-2 py-1 bg-slate-800 hover:bg-slate-700 text-rose-300 rounded font-medium transition" title="Reiniciar cronómetro">
+          <i class="ph-bold ph-arrow-counter-clockwise"></i>
+        </button>
+      </div>
+
+      <!-- Action buttons: Guide, Reset and CSV Export -->
+      <div class="flex items-center gap-2">
+        <button id="btnOpenGuide" class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-cyan-300 border border-slate-700 transition shadow-sm">
+          <i class="ph-bold ph-book-open text-base"></i>
+          <span>Guía & Rúbrica</span>
+        </button>
+        <button id="btnExportCsv" class="flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-600/30 transition">
+          <i class="ph-bold ph-file-csv text-base"></i>
+          <span>Descargar Reporte CSV</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <section class="bg-slate-900/90 border-b border-slate-800 px-4 py-3 relative z-10">
+    <div class="max-w-7xl mx-auto grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
+      <div class="flex flex-col">
+        <label for="studentName" class="text-xs font-medium text-slate-400 mb-1 flex items-center gap-1">
+          <i class="ph ph-user"></i> Estudiante (Nombre y Apellido)
+        </label>
+        <input type="text" id="studentName" placeholder="Ej. Juan Pérez" value="Estudiante de Telecomunicaciones" class="bg-slate-950 border border-slate-700 rounded-md px-2.5 py-1.5 text-slate-100 text-xs focus:ring-1 focus:ring-cyan-500 focus:outline-none">
+      </div>
+      <div class="flex flex-col">
+        <label for="studentCourse" class="text-xs font-medium text-slate-400 mb-1 flex items-center gap-1">
+          <i class="ph ph-graduation-cap"></i> Curso / División / Cátedra
+        </label>
+        <input type="text" id="studentCourse" placeholder="Ej. 5to 1ra - Redes" value="Redes de Datos - Prof. Berdun A." class="bg-slate-950 border border-slate-700 rounded-md px-2.5 py-1.5 text-slate-100 text-xs focus:ring-1 focus:ring-cyan-500 focus:outline-none">
+      </div>
+      <div class="flex flex-col">
+        <label for="targetCableType" class="text-xs font-medium text-slate-400 mb-1 flex items-center gap-1">
+          <i class="ph ph-target"></i> Objetivo Asignado
+        </label>
+        <select id="targetCableType" class="bg-slate-950 border border-slate-700 rounded-md px-2.5 py-1.5 text-slate-100 text-xs focus:ring-1 focus:ring-cyan-500 focus:outline-none font-medium">
+          <option value="straight_b">Cable Directo (Norma 568B - 568B)</option>
+          <option value="straight_a">Cable Directo (Norma 568A - 568A)</option>
+          <option value="crossover">Cable Cruzado (Norma 568A - 568B)</option>
+        </select>
+      </div>
+      <div class="flex flex-col justify-end">
+        <div class="flex items-center justify-between bg-slate-950 px-3 py-1.5 rounded-md border border-slate-800">
+          <span class="text-xs text-slate-400">Calificación Estimada:</span>
+          <span id="currentScoreBadge" class="text-sm font-bold text-cyan-400 font-mono">0.0 / 10.0</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <main class="max-w-7xl mx-auto w-full p-4 lg:p-6 flex-1 flex flex-col gap-6 relative z-10">
+    <div class="flex border-b border-slate-800 gap-2 pb-1 overflow-x-auto">
+      <button class="nav-tab active flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-t-lg bg-slate-800 text-cyan-400 border-b-2 border-cyan-400" data-target="tab-crimping">
+        <i class="ph-bold ph-hand-tap"></i> 1. Armado de Conectores RJ45
+      </button>
+      <button class="nav-tab flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-t-lg text-slate-400 hover:text-slate-200 hover:bg-slate-900" data-target="tab-tester">
+        <i class="ph-bold ph-broadcast"></i> 2. Tester de Red (Master / Remote)
+      </button>
+      <button class="nav-tab flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-t-lg text-slate-400 hover:text-slate-200 hover:bg-slate-900" data-target="tab-quiz">
+        <i class="ph-bold ph-seal-question"></i> 3. Evaluación Teórico-Técnica
+      </button>
+      <button class="nav-tab flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-t-lg text-slate-400 hover:text-slate-200 hover:bg-slate-900" data-target="tab-report">
+        <i class="ph-bold ph-certificate"></i> 4. Dictamen Final & Historial
+      </button>
+    </div>
+
+    <section id="tab-crimping" class="tab-pane flex flex-col gap-6">
+      <!-- Quick instructions & preset shortcuts -->
+      <div class="bg-slate-900/80 backdrop-blur border border-slate-800 p-4 rounded-xl flex flex-wrap items-center justify-between gap-4 shadow-lg">
+        <div>
+          <h2 class="text-base font-bold text-white flex items-center gap-2">
+            <i class="ph-fill ph-wrench text-cyan-400"></i> Mesa de Crimpado e Inserción de Conductores
+          </h2>
+          <p class="text-xs text-slate-400 mt-0.5">
+            Selecciona un conductor de la paleta y haz clic en el pin de destino (1 al 8) en cada extremo del cable.
+          </p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="text-xs text-slate-400">Plantillas rápidas:</span>
+          <button onclick="applyPreset('extA', '568B')" class="px-2.5 py-1 text-xs rounded bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">Ext A: 568B</button>
+          <button onclick="applyPreset('extA', '568A')" class="px-2.5 py-1 text-xs rounded bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">Ext A: 568A</button>
+          <button onclick="applyPreset('extB', '568B')" class="px-2.5 py-1 text-xs rounded bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">Ext B: 568B</button>
+          <button onclick="applyPreset('extB', '568A')" class="px-2.5 py-1 text-xs rounded bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700">Ext B: 568A</button>
+          <button onclick="clearConnectors()" class="px-2.5 py-1 text-xs rounded bg-rose-950/60 hover:bg-rose-900 text-rose-300 border border-rose-800 ml-2">Vaciar Ambos</button>
+        </div>
+      </div>
+
+      <!-- Color Palette Picker -->
+      <div class="bg-slate-900/80 backdrop-blur border border-slate-800 p-4 rounded-xl shadow-lg">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-2">
+          <i class="ph-bold ph-palette text-cyan-400"></i> Paleta de Hilos UTP (8 Conductores Normalizados)
+        </h3>
+        <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-2.5" id="wirePalette">
+          <!-- Populated dynamically with selectable wires -->
+        </div>
+      </div>
+
+      <!-- Both RJ45 Connectors Side-by-Side -->
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <!-- Connector A -->
+        <div class="bg-slate-900/80 backdrop-blur border border-slate-800 rounded-xl p-4 flex flex-col shadow-lg">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+            <div class="flex items-center gap-2">
+              <span class="w-7 h-7 rounded-lg bg-cyan-600 text-white font-bold flex items-center justify-center text-sm shadow">A</span>
+              <div>
+                <h3 class="font-bold text-white text-sm">Ficha RJ-45 - Extremo A</h3>
+                <span id="detectedNormA" class="text-xs text-amber-400 font-mono font-medium">Incompleto / Desconocido</span>
+              </div>
+            </div>
+            <button onclick="clearSingleConnector('extA')" class="text-xs text-slate-400 hover:text-rose-400 transition flex items-center gap-1">
+              <i class="ph ph-trash"></i> Limpiar A
+            </button>
+          </div>
+
+          <!-- Connector visual box -->
+          <div class="bg-slate-950/90 p-4 rounded-xl border border-slate-800 flex flex-col items-center shadow-inner">
+            <div class="text-[10px] text-slate-400 uppercase tracking-widest mb-2 font-mono">Pin 1 (Izquierda) ────► Pin 8 (Derecha) (Vista posterior conector)</div>
+            <div class="w-full grid grid-cols-8 gap-1.5 max-w-md h-44 bg-slate-900/90 p-2.5 rounded-lg border border-slate-700/80 shadow-inner" id="slotsExtA">
+              <!-- 8 slots for Extremo A -->
+            </div>
+          </div>
+        </div>
+
+        <!-- Connector B -->
+        <div class="bg-slate-900/80 backdrop-blur border border-slate-800 rounded-xl p-4 flex flex-col shadow-lg">
+          <div class="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+            <div class="flex items-center gap-2">
+              <span class="w-7 h-7 rounded-lg bg-indigo-600 text-white font-bold flex items-center justify-center text-sm shadow">B</span>
+              <div>
+                <h3 class="font-bold text-white text-sm">Ficha RJ-45 - Extremo B</h3>
+                <span id="detectedNormB" class="text-xs text-amber-400 font-mono font-medium">Incompleto / Desconocido</span>
+              </div>
+            </div>
+            <button onclick="clearSingleConnector('extB')" class="text-xs text-slate-400 hover:text-rose-400 transition flex items-center gap-1">
+              <i class="ph ph-trash"></i> Limpiar B
+            </button>
+          </div>
+
+          <!-- Connector visual box -->
+          <div class="bg-slate-950/90 p-4 rounded-xl border border-slate-800 flex flex-col items-center shadow-inner">
+            <div class="text-[10px] text-slate-400 uppercase tracking-widest mb-2 font-mono">Pin 1 (Izquierda) ────► Pin 8 (Derecha) (Vista posterior conector)</div>
+            <div class="w-full grid grid-cols-8 gap-1.5 max-w-md h-44 bg-slate-900/90 p-2.5 rounded-lg border border-slate-700/80 shadow-inner" id="slotsExtB">
+              <!-- 8 slots for Extremo B -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Quick Crimp Verification Banner -->
+      <div class="p-4 bg-slate-900/80 backdrop-blur rounded-xl border border-slate-800 flex flex-wrap items-center justify-between gap-4 shadow-lg">
+        <div>
+          <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Diagnóstico de Armado Actual</div>
+          <div id="crimpStatusText" class="text-sm font-bold text-slate-200 mt-0.5">Coloca los 8 hilos en ambos extremos para realizar el análisis de continuidad.</div>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <button onclick="injectFault('open_pair')" class="px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 rounded border border-slate-700">Simular Par Abierto</button>
+          <button onclick="injectFault('crossover_fault')" class="px-3 py-1.5 text-xs bg-slate-800 hover:bg-slate-700 text-slate-200 rounded border border-slate-700">Simular Transposición</button>
+          <button onclick="switchTab('tab-tester')" class="px-4 py-2 text-xs font-bold bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg shadow-md shadow-cyan-600/30 flex items-center gap-1.5 transition">
+            <span>Pasar al Tester de Red</span>
+            <i class="ph-bold ph-arrow-right"></i>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-tester" class="tab-pane hidden flex flex-col gap-6">
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <!-- Control Deck -->
+        <div class="bg-slate-900/80 backdrop-blur border border-slate-800 rounded-xl p-5 flex flex-col justify-between gap-6 shadow-lg">
+          <div>
+            <h2 class="text-lg font-bold text-white flex items-center gap-2 mb-2">
+              <i class="ph-bold ph-sliders text-cyan-400"></i> Panel del Tester
+            </h2>
+            <p class="text-xs text-slate-400 leading-relaxed">
+              El transmisor genera pulsos cíclicos en cada pin del conector Master (1 al 8) y la unidad Remote verifica la llegada eléctrica. Si hay coincidencia de pines, los LEDs se encienden en sincronía.
+            </p>
+          </div>
+
+          <div class="space-y-4">
+            <div>
+              <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1.5">Alimentación y Modos</label>
+              <div class="grid grid-cols-2 gap-2">
+                <button id="btnTesterPower" onclick="toggleTesterPower()" class="w-full py-2 px-3 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center gap-1.5 shadow transition">
+                  <i class="ph-bold ph-power"></i> <span id="testerPowerText">Encender (ON)</span>
+                </button>
+                <button onclick="stepTesterOnce()" class="w-full py-2 px-3 text-xs font-bold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700 flex items-center justify-center gap-1.5 transition">
+                  <i class="ph-bold ph-skip-forward"></i> <span>Paso a Paso</span>
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label class="text-xs font-semibold text-slate-400 uppercase tracking-wider block mb-1.5">Velocidad de Barrido</label>
+              <div class="grid grid-cols-2 gap-2">
+                <button id="btnSpeedSlow" onclick="setTesterSpeed('slow')" class="py-1.5 text-xs font-semibold rounded bg-cyan-950 border border-cyan-600 text-cyan-300">Modo S (Lento - 1.2s)</button>
+                <button id="btnSpeedFast" onclick="setTesterSpeed('fast')" class="py-1.5 text-xs font-semibold rounded bg-slate-800 border border-slate-700 text-slate-300">Modo ON (Rápido - 0.4s)</button>
+              </div>
+            </div>
+
+            <div class="p-3 bg-slate-950 rounded-lg border border-slate-800">
+              <div class="text-xs font-mono text-cyan-400 mb-1 flex items-center justify-between">
+                <span>Estado:</span>
+                <span id="sweepStatusBadge" class="text-slate-400 font-bold">En espera</span>
+              </div>
+              <p id="technicalDiagnostics" class="text-xs text-slate-300 leading-normal">
+                Enciende el probador para iniciar la secuencia de comprobación de pines.
+              </p>
+            </div>
+          </div>
+
+          <div class="border-t border-slate-800 pt-4 flex flex-col gap-2">
+            <button onclick="validateCurrentCable()" class="w-full py-2.5 text-sm font-bold bg-cyan-600 hover:bg-cyan-500 text-white rounded-lg shadow-lg shadow-cyan-600/30 flex items-center justify-center gap-2 transition">
+              <i class="ph-bold ph-check-circle"></i> Certificar y Guardar Intento
+            </button>
+          </div>
+        </div>
+
+        <!-- Master & Remote Visual Device -->
+        <div class="lg:col-span-2 bg-slate-900/80 backdrop-blur border border-slate-800 rounded-xl p-6 flex flex-col items-center justify-center shadow-lg">
+          <div class="w-full max-w-xl grid grid-cols-2 gap-6 sm:gap-10">
+            <!-- Master Unit -->
+            <div class="bg-gradient-to-b from-slate-800 to-slate-900 border-2 border-slate-700 rounded-2xl p-5 shadow-2xl flex flex-col items-center relative">
+              <div class="absolute -top-3 px-3 py-0.5 bg-cyan-600 text-white text-[10px] font-black uppercase rounded-full shadow tracking-wider">
+                MASTER UNIT
+              </div>
+              <div class="w-16 h-4 bg-slate-950 rounded-t border-x border-t border-slate-700 mb-3 flex items-center justify-center">
+                <span class="text-[9px] font-mono text-slate-500">RJ-45 IN</span>
+              </div>
+              <div class="w-full space-y-2">
+                <!-- 8 LEDs Master -->
+                <div class="flex items-center justify-between px-3 py-1 bg-slate-950/60 rounded border border-slate-800">
+                  <span class="text-xs font-mono font-bold text-slate-300">1</span>
+                  <div id="led-master-1" class="w-3.5 h-3.5 rounded-full led-off"></div>
+                </div>
+                <div class="flex items-center justify-between px-3 py-1 bg-slate-950/60 rounded border border-slate-800">
+                  <span class="text-xs font-mono font-bold text-slate-300">2</span>
+                  <div id="led-master-2" class="w-3.5 h-3.5 rounded-full led-off"></div>
+                </div>
+                <div class="flex items-center justify-between px-3 py-1 bg-slate-950/60 rounded border border-slate-800">
+                  <span class="text-xs font-mono font-bold text-slate-300">3</span>
+                  <div id="led-master-3" class="w-3.5 h-3.5 rounded-full led-off"></div>
+                </div>
+                <div class="flex items-center justify-between px-3 py-1 bg-slate-950/60 rounded border border-slate-800">
+                  <span class="text-xs font-mono font-bold text-slate-300">4</span>
+                  <div id="led-master-4" class="w-3.5 h-3.5 rounded-full led-off"></div>
+                </div>
+                <div class="flex items-center justify-between px-3 py-1 bg-slate-950/60 rounded border border-slate-800">
+                  <span class="text-xs font-mono font-bold text-slate-300">5</span>
+                  <div id="led-master-5" class="w-3.5 h-3.5 rounded-full led-off"></div>
+                </div>
+                <div class="flex items-center justify-between px-3 py-1 bg-slate-950/60 rounded border border-slate-800">
+                  <span class="text-xs font-mono font-bold text-slate-300">6</span>
+                  <div id="led-master-6" class="w-3.5 h-3.5 rounded-full led-off"></div>
+                </div>
+                <div class="flex items-center justify-between px-3 py-1 bg-slate-950/60 rounded border border-slate-800">
+                  <span class="text-xs font-mono font-bold text-slate-300">7</span>
+                  <div id="led-master-7" class="w-3.5 h-3.5 rounded-full led-off"></div>
+                </div>
+                <div class="flex items-center justify-between px-3 py-1 bg-slate-950/60 rounded border border-slate-800">
+                  <span class="text-xs font-mono font-bold text-slate-300">8</span>
+                  <div id="led-master-8" class="w-3.5 h-3.5 rounded-full led-off"></div>
+                </div>
+                <div class="flex items-center justify-between px-3 py-1 bg-slate-950/60 rounded border border-slate-800">
+                  <span class="text-xs font-mono font-bold text-slate-400">G (Shield)</span>
+                  <div id="led-master-g" class="w-3.5 h-3.5 rounded-full led-off"></div>
+                </div>
+              </div>
+              <div class="mt-4 text-[10px] text-slate-400 font-bold uppercase tracking-wider text-center">
+                Tx (Emisor)
+              </div>
+            </div>
+
+            <!-- Remote Unit -->
+            <div class="bg-gradient-to-b from-slate-800 to-slate-900 border-2 border-slate-700 rounded-2xl p-5 shadow-2xl flex flex-col items-center relative">
+              <div class="absolute -top-3 px-3 py-0.5 bg-indigo-600 text-white text-[10px] font-black uppercase rounded-full shadow tracking-wider">
+                REMOTE UNIT
+              </div>
+              <div class="w-16 h-4 bg-slate-950 rounded-t border-x border-t border-slate-700 mb-3 flex items-center justify-center">
+                <span class="text-[9px] font-mono text-slate-500">RJ-45 IN</span>
+              </div>
+              <div class="w-full space-y-2">
+                <!-- 8 LEDs Remote -->
+                <div class="flex items-center justify-between px-3 py-1 bg-slate-950/60 rounded border border-slate-800">
+                  <span class="text-xs font-mono font-bold text-slate-300">1</span>
+                  <div id="led-remote-1" class="w-3.5 h-3.5 rounded-full led-off"></div>
+                </div>
+                <div class="flex items-center justify-between px-3 py-1 bg-slate-950/60 rounded border border-slate-800">
+                  <span class="text-xs font-mono font-bold text-slate-300">2</span>
+                  <div id="led-remote-2" class="w-3.5 h-3.5 rounded-full led-off"></div>
+                </div>
+                <div class="flex items-center justify-between px-3 py-1 bg-slate-950/60 rounded border border-slate-800">
+                  <span class="text-xs font-mono font-bold text-slate-300">3</span>
+                  <div id="led-remote-3" class="w-3.5 h-3.5 rounded-full led-off"></div>
+                </div>
+                <div class="flex items-center justify-between px-3 py-1 bg-slate-950/60 rounded border border-slate-800">
+                  <span class="text-xs font-mono font-bold text-slate-300">4</span>
+                  <div id="led-remote-4" class="w-3.5 h-3.5 rounded-full led-off"></div>
+                </div>
+                <div class="flex items-center justify-between px-3 py-1 bg-slate-950/60 rounded border border-slate-800">
+                  <span class="text-xs font-mono font-bold text-slate-300">5</span>
+                  <div id="led-remote-5" class="w-3.5 h-3.5 rounded-full led-off"></div>
+                </div>
+                <div class="flex items-center justify-between px-3 py-1 bg-slate-950/60 rounded border border-slate-800">
+                  <span class="text-xs font-mono font-bold text-slate-300">6</span>
+                  <div id="led-remote-6" class="w-3.5 h-3.5 rounded-full led-off"></div>
+                </div>
+                <div class="flex items-center justify-between px-3 py-1 bg-slate-950/60 rounded border border-slate-800">
+                  <span class="text-xs font-mono font-bold text-slate-300">7</span>
+                  <div id="led-remote-7" class="w-3.5 h-3.5 rounded-full led-off"></div>
+                </div>
+                <div class="flex items-center justify-between px-3 py-1 bg-slate-950/60 rounded border border-slate-800">
+                  <span class="text-xs font-mono font-bold text-slate-300">8</span>
+                  <div id="led-remote-8" class="w-3.5 h-3.5 rounded-full led-off"></div>
+                </div>
+                <div class="flex items-center justify-between px-3 py-1 bg-slate-950/60 rounded border border-slate-800">
+                  <span class="text-xs font-mono font-bold text-slate-400">G (Shield)</span>
+                  <div id="led-remote-g" class="w-3.5 h-3.5 rounded-full led-off"></div>
+                </div>
+              </div>
+              <div class="mt-4 text-[10px] text-slate-400 font-bold uppercase tracking-wider text-center">
+                Rx (Receptor)
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="tab-quiz" class="tab-pane hidden flex flex-col gap-6">
+      <div class="bg-slate-900/80 backdrop-blur border border-slate-800 rounded-xl p-5 flex flex-wrap items-center justify-between gap-4 shadow-lg">
+        <div>
+          <h2 class="text-lg font-bold text-white flex items-center gap-2">
+            <i class="ph-bold ph-exam text-cyan-400"></i> Evaluación Teórico-Técnica (Normas TIA-568)
+          </h2>
+          <p class="text-xs text-slate-400 mt-0.5">
+            Cuestionario de 5 preguntas técnicas. Cada respuesta correcta aporta 2 puntos (Puntaje Máximo: 10).
+          </p>
+        </div>
+        <div class="flex items-center gap-3">
+          <span class="text-xs text-slate-400">Puntaje Teórico:</span>
+          <span id="quizScoreText" class="text-sm font-bold text-cyan-300 font-mono">0 / 10 pts</span>
+        </div>
+      </div>
+
+      <div class="space-y-4" id="quizContainer">
+        <!-- Questions injected via JavaScript -->
+      </div>
+
+      <div class="flex justify-end">
+        <button onclick="evaluateQuiz()" class="px-6 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-sm rounded-lg shadow-lg shadow-cyan-600/30 transition flex items-center gap-2">
+          <i class="ph-bold ph-check"></i> Calificar Cuestionario Teórico
+        </button>
+      </div>
+    </section>
+
+    <section id="tab-report" class="tab-pane hidden flex flex-col gap-6">
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="bg-slate-900/80 backdrop-blur border border-slate-800 rounded-xl p-5 flex flex-col items-center text-center justify-center shadow-lg">
+          <div class="text-xs font-semibold uppercase text-slate-400 mb-1">Calificación Consolidada</div>
+          <div id="finalGradeDisplay" class="text-5xl font-black text-cyan-400 font-mono my-2">0.0</div>
+          <div id="finalVerdictBadge" class="px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-slate-800 text-slate-400">
+            Pendiente de Entrega
+          </div>
+        </div>
+
+        <div class="md:col-span-2 bg-slate-900/80 backdrop-blur border border-slate-800 rounded-xl p-5 flex flex-col justify-between shadow-lg">
+          <div>
+            <h3 class="font-bold text-white text-base mb-2 flex items-center gap-2">
+              <i class="ph-bold ph-sparkle text-cyan-400"></i> Devolución Pedagógica Integral
+            </h3>
+            <p id="pedagogicalFeedback" class="text-xs text-slate-300 leading-relaxed">
+              Completa el conexionado de los conductores en ambos conectores RJ-45, ejecuta la verificación con el probador y responde el cuestionario para generar tu informe de certificación.
+            </p>
+          </div>
+          <div class="pt-4 border-t border-slate-800 flex flex-wrap gap-2 justify-end">
+            <button onclick="window.print()" class="px-4 py-2 text-xs font-semibold rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 flex items-center gap-1.5 transition">
+              <i class="ph-bold ph-printer"></i> Imprimir Reporte
+            </button>
+            <button onclick="downloadCSVReport()" class="px-4 py-2 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white flex items-center gap-1.5 shadow-md shadow-emerald-600/30 transition">
+              <i class="ph-bold ph-download-simple"></i> Exportar Auditoría (.CSV)
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- History of attempts Table -->
+      <div class="bg-slate-900/80 backdrop-blur border border-slate-800 rounded-xl p-5 shadow-lg">
+        <h3 class="font-bold text-white text-sm mb-3 flex items-center justify-between">
+          <span class="flex items-center gap-2">
+            <i class="ph-bold ph-clock-counter-clockwise text-cyan-400"></i> Historial de Intentos de Cableado
+          </span>
+          <button onclick="clearHistory()" class="text-xs font-normal text-rose-400 hover:underline">Limpiar Historial</button>
+        </h3>
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs text-slate-300">
+            <thead class="text-[11px] uppercase bg-slate-950 text-slate-400 border-b border-slate-800 font-mono">
+              <tr>
+                <th class="p-2.5">#</th>
+                <th class="p-2.5">Hora</th>
+                <th class="p-2.5">Objetivo</th>
+                <th class="p-2.5">Extremo A</th>
+                <th class="p-2.5">Extremo B</th>
+                <th class="p-2.5">Resultado Físico</th>
+                <th class="p-2.5">Nota Final</th>
+              </tr>
+            </thead>
+            <tbody id="historyTableBody" class="divide-y divide-slate-800">
+              <tr>
+                <td colspan="7" class="p-4 text-center text-slate-500">No hay intentos registrados todavía.</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="guideModal" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm hidden flex items-center justify-center p-4">
+    <div class="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden">
+      <!-- Modal Header -->
+      <div class="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/90">
+        <div class="flex items-center gap-2">
+          <div class="p-2 bg-cyan-600/20 text-cyan-400 rounded-lg">
+            <i class="ph-bold ph-book-open-text text-xl"></i>
+          </div>
+          <div>
+            <h3 class="font-bold text-white text-base">Guía de Laboratorio & Rúbrica Analítica</h3>
+            <p class="text-xs text-slate-400">Normativa ANSI/TIA/EIA-568-C - Cátedra: Prof. Berdun A.</p>
+          </div>
+        </div>
+        <button id="btnCloseGuide" class="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition">
+          <i class="ph-bold ph-x text-lg"></i>
+        </button>
+      </div>
+
+      <!-- Modal Content -->
+      <div class="p-6 overflow-y-auto space-y-6 text-sm text-slate-300 leading-relaxed">
+        <div>
+          <h4 class="text-cyan-400 font-bold uppercase text-xs tracking-wider mb-2 flex items-center gap-1.5">
+            <i class="ph-fill ph-caret-circle-right"></i> 1. Fundamentos de los Estándares TIA-568A y TIA-568B
+          </h4>
+          <p class="text-xs mb-3 text-slate-300">
+            Ambas normas definen la asignación de pines en conectores RJ-45 de 8 contactos (8P8C) para cable UTP de 100 ohmios. Su única diferencia es la inversión posicional de los pares naranja (Par 2) y verde (Par 3).
+          </p>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
+            <div class="p-3 bg-slate-950 rounded-lg border border-slate-800">
+              <span class="font-bold text-emerald-400 block mb-1">Norma TIA-568A:</span>
+              1. Blanco/Verde<br>2. Verde<br>3. Blanco/Naranja<br>4. Azul<br>5. Blanco/Azul<br>6. Naranja<br>7. Blanco/Marrón<br>8. Marrón
+            </div>
+            <div class="p-3 bg-slate-950 rounded-lg border border-slate-800">
+              <span class="font-bold text-amber-400 block mb-1">Norma TIA-568B (Comercial Predominante):</span>
+              1. Blanco/Naranja<br>2. Naranja<br>3. Blanco/Verde<br>4. Azul<br>5. Blanco/Azul<br>6. Verde<br>7. Blanco/Marrón<br>8. Marrón
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <h4 class="text-cyan-400 font-bold uppercase text-xs tracking-wider mb-2 flex items-center gap-1.5">
+            <i class="ph-fill ph-caret-circle-right"></i> 2. Tipos de Cable y Aplicaciones
+          </h4>
+          <ul class="list-disc list-inside text-xs space-y-1.5 text-slate-300">
+            <li><strong>Cable Directo (Straight-Through):</strong> Misma norma en ambos lados (568B-568B o 568A-568A). Se conecta entre equipos disímiles (PC a Switch, Switch a Router).</li>
+            <li><strong>Cable Cruzado (Crossover):</strong> 568A en un extremo y 568B en el otro. Cruza los pines de transmisión (1 y 2) con recepción (3 y 6). Utilizado entre equipos homogéneos que carecen de Auto-MDIX.</li>
+          </ul>
+        </div>
+
+        <div>
+          <h4 class="text-cyan-400 font-bold uppercase text-xs tracking-wider mb-2 flex items-center gap-1.5">
+            <i class="ph-fill ph-caret-circle-right"></i> 3. Rúbrica Analítica de Calificación (Escala 1 al 10)
+          </h4>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-xs border border-slate-800">
+              <thead class="bg-slate-950 text-slate-300 font-semibold">
+                <tr>
+                  <th class="p-2 border-b border-slate-800">Criterio</th>
+                  <th class="p-2 border-b border-slate-800">Insuficiente (1-4)</th>
+                  <th class="p-2 border-b border-slate-800">Regular (5-6)</th>
+                  <th class="p-2 border-b border-slate-800">Destacado (7-10)</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-800 text-slate-400">
+                <tr>
+                  <td class="p-2 font-medium text-slate-200">Asignación de Pines</td>
+                  <td class="p-2">Conductores invertidos o pines abiertos.</td>
+                  <td class="p-2">Armado funcional pero diferente a la norma asignada.</td>
+                  <td class="p-2 text-emerald-400 font-medium">Secuencia 568A/B exacta y prolija.</td>
+                </tr>
+                <tr>
+                  <td class="p-2 font-medium text-slate-200">Diagnóstico con Tester</td>
+                  <td class="p-2">No interpreta los pulsos de los 8 LEDs.</td>
+                  <td class="p-2">Identifica cable directo pero duda en cruzado.</td>
+                  <td class="p-2 text-emerald-400 font-medium">Diagnostica con soltura continuidades y pares cruzados.</td>
+                </tr>
+                <tr>
+                  <td class="p-2 font-medium text-slate-200">Fundamentos Teóricos</td>
+                  <td class="p-2">Menos de 3 respuestas correctas.</td>
+                  <td class="p-2">3 a 4 respuestas correctas.</td>
+                  <td class="p-2 text-emerald-400 font-medium">5 respuestas correctas (10 pts teóricos).</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="p-3 bg-slate-950 border-t border-slate-800 flex justify-end">
+        <button onclick="toggleGuide(false)" class="px-4 py-1.5 text-xs font-bold rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white transition">
+          Cerrar Guía
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* Technical constants and color definitions */
+    const WIRE_TYPES = [
+      { id: 'w_wg', name: 'Blanco / Verde', cssClass: 'wire-white-green', code: 'WG' },
+      { id: 'w_g',  name: 'Verde',         cssClass: 'wire-green',       code: 'G'  },
+      { id: 'w_wo', name: 'Blanco / Naranja',cssClass: 'wire-white-orange',code: 'WO' },
+      { id: 'w_o',  name: 'Naranja',       cssClass: 'wire-orange',      code: 'O'  },
+      { id: 'w_wb', name: 'Blanco / Azul',   cssClass: 'wire-white-blue',  code: 'WB' },
+      { id: 'w_b',  name: 'Azul',          cssClass: 'wire-blue',        code: 'B'  },
+      { id: 'w_wbr',name: 'Blanco / Marrón', cssClass: 'wire-white-brown', code: 'WBR'},
+      { id: 'w_br', name: 'Marrón',        cssClass: 'wire-brown',       code: 'BR' }
+    ];
+
+    const STANDARDS = {
+      '568A': ['w_wg', 'w_g', 'w_wo', 'w_b', 'w_wb', 'w_o', 'w_wbr', 'w_br'],
+      '568B': ['w_wo', 'w_o', 'w_wg', 'w_b', 'w_wb', 'w_g', 'w_wbr', 'w_br']
+    };
+
+    /* State variables */
+    let connectorA = new Array(8).fill(null);
+    let connectorB = new Array(8).fill(null);
+    let selectedPaletteWire = null;
+    let testerActive = false;
+    let testerStep = 0;
+    let testerInterval = null;
+    let testerSpeed = 1000; // ms
+    let timerSeconds = 0;
+    let timerInterval = null;
+    let timerRunning = true;
+    let attemptLogs = [];
+    let quizFinalScore = 0;
+
+    /* Technical Quiz Questions */
+    const QUIZ_QUESTIONS = [
+      {
+        id: 1,
+        question: "¿Cuál es la diferencia constructiva en la asignación de pines entre TIA-568A y TIA-568B?",
+        options: [
+          { text: "Son totalmente idénticas en pines 1 al 8.", correct: false },
+          { text: "Se invierten las posiciones de los pares Verde (pines 1-2 / 3-6) y Naranja (pines 3-6 / 1-2).", correct: true },
+          { text: "Se invierte el par Azul con el par Marrón.", correct: false },
+          { text: "568B no utiliza el pin número 6.", correct: false }
+        ],
+        explanation: "La diferencia radica en el intercambio entre el par 2 (Naranja) y el par 3 (Verde) en los pines 1, 2, 3 y 6."
+      },
+      {
+        id: 2,
+        question: "En una red Gigabit Ethernet 1000BASE-T sobre cable Categoría 5e o 6, ¿cuántos pares de hilos se utilizan simultáneamente?",
+        options: [
+          { text: "Solo 2 pares (pines 1, 2, 3 y 6).", correct: false },
+          { text: "Los 4 pares de forma simultánea y bidireccional (full-duplex).", correct: true },
+          { text: "3 pares para datos y 1 para conexión de masa.", correct: false },
+          { text: "2 pares para transmisión Tx y 2 para recepción Rx fijos.", correct: false }
+        ],
+        explanation: "1000BASE-T utiliza los 4 pares (8 hilos) a 250 Mbps por par con cancelación híbrida de eco."
+      },
+      {
+        id: 3,
+        question: "¿Por qué el estándar ANSI/TIA-568 exige no destrenzar los pares más de 13 mm (0.5 pulgadas) al crimpar?",
+        options: [
+          { text: "Para evitar superar el límite de diafonía en el extremo cercano (NEXT).", correct: true },
+          { text: "Para que el cable no sea demasiado pesado dentro del rack.", correct: false },
+          { text: "Para evitar descargas electrostáticas hacia la switchera.", correct: false },
+          { text: "Es una sugerencia estética sin impacto en el rendimiento.", correct: false }
+        ],
+        explanation: "El trenzado cancela las interferencias electromagnéticas. Destrenzar más de 13 mm degrada severamente la paradiafonía (NEXT)."
+      },
+      {
+        id: 4,
+        question: "Si el hilo 3 está cortado (circuito abierto), ¿cómo responden los LEDs del tester de red?",
+        options: [
+          { text: "El LED 3 del Master no enciende, pero el del Remote sí.", correct: false },
+          { text: "El LED 3 del Master enciende con normalidad y el LED 3 del Remote permanece apagado.", correct: true },
+          { text: "Todos los LEDs titilan en color rojo al mismo tiempo.", correct: false },
+          { text: "Se encienden el pin 3 y el pin 6 a la vez.", correct: false }
+        ],
+        explanation: "El Master emite la señal secuencialmente sin depender del receptor; al no haber continuidad, el LED 3 del Remote no recibe corriente."
+      },
+      {
+        id: 5,
+        question: "¿Qué característica de hardware permite que dos dispositivos se comuniquen con cable directo aun cuando las normas exigirían cruzado?",
+        options: [
+          { text: "Auto MDI/MDI-X (detección e inversión automática de pares).", correct: true },
+          { text: "Alimentación PoE (802.3af).", correct: false },
+          { text: "Encapsulamiento VLAN 802.1Q.", correct: false },
+          { text: "Blindaje exterior FTP.", correct: false }
+        ],
+        explanation: "Auto MDI/MDI-X detecta automáticamente si el dispositivo conectado requiere pines de transmisión o recepción cruzados e invierte las líneas internamente."
+      }
+    ];
+
+    window.addEventListener('DOMContentLoaded', () => {
+      buildWatermark();
+      renderPalette();
+      renderSlots('extA', connectorA);
+      renderSlots('extB', connectorB);
+      renderQuiz();
+      startTimer();
+      setupTabs();
+      setupGuideModal();
+      updateDiagnostics();
+    });
+
+    // Populate watermark background with repeated "Profesor Berdun A." pattern
+    function buildWatermark() {
+      const container = document.getElementById('watermarkContainer');
+      container.innerHTML = '';
+      const text = 'Profesor Berdun A.';
+      for (let i = 0; i < 90; i++) {
+        const span = document.createElement('div');
+        span.className = 'watermark-text';
+        span.textContent = text;
+        container.appendChild(span);
+      }
+    }
+
+    function renderPalette() {
+      const container = document.getElementById('wirePalette');
+      container.innerHTML = '';
+
+      WIRE_TYPES.forEach(wire => {
+        const item = document.createElement('div');
+        item.className = 'flex items-center gap-2 p-2 bg-slate-950/80 hover:bg-slate-800 rounded-lg border border-slate-800 cursor-pointer transition select-none';
+        item.dataset.wireId = wire.id;
+
+        item.innerHTML = `
+          <div class="w-5 h-8 rounded ${wire.cssClass} border border-slate-600 shadow-sm shrink-0"></div>
+          <div class="flex flex-col overflow-hidden">
+            <span class="text-xs font-semibold text-slate-200 truncate">${wire.name}</span>
+            <span class="text-[10px] text-slate-400 font-mono">${wire.code}</span>
+          </div>
+        `;
+
+        item.addEventListener('click', () => {
+          document.querySelectorAll('#wirePalette > div').forEach(el => el.classList.remove('ring-2', 'ring-cyan-400'));
+          if (selectedPaletteWire === wire.id) {
+            selectedPaletteWire = null;
+          } else {
+            selectedPaletteWire = wire.id;
+            item.classList.add('ring-2', 'ring-cyan-400');
+          }
+        });
+
+        container.appendChild(item);
+      });
+    }
+
+    function renderSlots(connectorKey, arrayRef) {
+      const container = document.getElementById(connectorKey === 'extA' ? 'slotsExtA' : 'slotsExtB');
+      container.innerHTML = '';
+
+      for (let i = 0; i < 8; i++) {
+        const wireId = arrayRef[i];
+        const wireObj = WIRE_TYPES.find(w => w.id === wireId);
+
+        const slot = document.createElement('div');
+        slot.className = 'flex flex-col items-center justify-between h-full bg-slate-950 rounded border border-slate-700/80 p-1 cursor-pointer hover:border-cyan-500 transition group relative';
+        
+        slot.innerHTML = `
+          <span class="text-[10px] font-mono text-slate-400 font-bold group-hover:text-cyan-400">P${i+1}</span>
+          <div class="w-full flex-1 rounded-sm my-1 flex items-center justify-center ${wireObj ? wireObj.cssClass : 'bg-slate-800/40 border border-dashed border-slate-700'}">
+            ${!wireObj ? '<span class="text-[9px] text-slate-600">vacío</span>' : ''}
+          </div>
+          <span class="text-[9px] font-mono text-slate-300 font-bold truncate max-w-full">
+            ${wireObj ? wireObj.code : '-'}
+          </span>
+        `;
+
+        slot.addEventListener('click', () => {
+          if (selectedPaletteWire) {
+            arrayRef[i] = selectedPaletteWire;
+          } else if (arrayRef[i]) {
+            arrayRef[i] = null;
+          }
+          renderSlots(connectorKey, arrayRef);
+          analyzeStandards();
+          updateDiagnostics();
+        });
+
+        container.appendChild(slot);
+      }
+    }
+
+    function detectStandard(wireArray) {
+      if (wireArray.some(w => w === null)) return { code: 'incomplete', name: 'Incompleto (Faltan hilos)' };
+      
+      const is568A = STANDARDS['568A'].every((val, idx) => val === wireArray[idx]);
+      if (is568A) return { code: '568A', name: 'TIA/EIA-568A' };
+
+      const is568B = STANDARDS['568B'].every((val, idx) => val === wireArray[idx]);
+      if (is568B) return { code: '568B', name: 'TIA/EIA-568B' };
+
+      return { code: 'custom', name: 'Personalizado / Con fallas' };
+    }
+
+    function analyzeStandards() {
+      const resA = detectStandard(connectorA);
+      const resB = detectStandard(connectorB);
+
+      const labelA = document.getElementById('detectedNormA');
+      const labelB = document.getElementById('detectedNormB');
+
+      labelA.textContent = resA.name;
+      labelA.className = `text-xs font-mono font-medium ${resA.code === 'incomplete' ? 'text-amber-400' : resA.code === 'custom' ? 'text-rose-400' : 'text-emerald-400'}`;
+
+      labelB.textContent = resB.name;
+      labelB.className = `text-xs font-mono font-medium ${resB.code === 'incomplete' ? 'text-amber-400' : resB.code === 'custom' ? 'text-rose-400' : 'text-emerald-400'}`;
+
+      updateLiveScore();
+    }
+
+    function updateDiagnostics() {
+      const resA = detectStandard(connectorA);
+      const resB = detectStandard(connectorB);
+      const statusEl = document.getElementById('crimpStatusText');
+
+      if (resA.code === 'incomplete' || resB.code === 'incomplete') {
+        statusEl.textContent = 'Coloca los 8 conductores en ambos extremos para verificar continuidad y compatibilidad.';
+        statusEl.className = 'text-sm font-semibold text-slate-400 mt-0.5';
+        return;
+      }
+
+      if (resA.code === '568B' && resB.code === '568B') {
+        statusEl.textContent = 'Enlace Directo Certificado (Norma 568B - 568B). Apto para redes de área local estándar.';
+        statusEl.className = 'text-sm font-semibold text-emerald-400 mt-0.5';
+      } else if (resA.code === '568A' && resB.code === '568A') {
+        statusEl.textContent = 'Enlace Directo Certificado (Norma 568A - 568A). Apto para redes de área local estándar.';
+        statusEl.className = 'text-sm font-semibold text-emerald-400 mt-0.5';
+      } else if ((resA.code === '568A' && resB.code === '568B') || (resA.code === '568B' && resB.code === '568A')) {
+        statusEl.textContent = 'Enlace Cruzado Certificado (Crossover 568A - 568B). Transmite pares Tx/Rx alternados.';
+        statusEl.className = 'text-sm font-semibold text-cyan-400 mt-0.5';
+      } else {
+        statusEl.textContent = 'Falla de conexionado detectada: secuencia no estandarizada o transposición de hilos.';
+        statusEl.className = 'text-sm font-semibold text-rose-400 mt-0.5';
+      }
+    }
+
+    function applyPreset(connectorKey, std) {
+      const targetArr = connectorKey === 'extA' ? connectorA : connectorB;
+      STANDARDS[std].forEach((w, i) => targetArr[i] = w);
+      renderSlots('extA', connectorA);
+      renderSlots('extB', connectorB);
+      analyzeStandards();
+      updateDiagnostics();
+    }
+
+    function clearConnectors() {
+      connectorA.fill(null);
+      connectorB.fill(null);
+      renderSlots('extA', connectorA);
+      renderSlots('extB', connectorB);
+      analyzeStandards();
+      updateDiagnostics();
+    }
+
+    function clearSingleConnector(key) {
+      if (key === 'extA') connectorA.fill(null);
+      else connectorB.fill(null);
+      renderSlots('extA', connectorA);
+      renderSlots('extB', connectorB);
+      analyzeStandards();
+      updateDiagnostics();
+    }
+
+    function injectFault(type) {
+      if (type === 'open_pair') {
+        connectorB[3] = null;
+        connectorB[4] = null;
+      } else if (type === 'crossover_fault') {
+        const temp1 = connectorB[0];
+        const temp2 = connectorB[1];
+        connectorB[0] = connectorB[6];
+        connectorB[1] = connectorB[7];
+        connectorB[6] = temp1;
+        connectorB[7] = temp2;
+      }
+      renderSlots('extB', connectorB);
+      analyzeStandards();
+      updateDiagnostics();
+    }
+
+    function toggleTesterPower() {
+      testerActive = !testerActive;
+      const btn = document.getElementById('btnTesterPower');
+      const text = document.getElementById('testerPowerText');
+      const sweepBadge = document.getElementById('sweepStatusBadge');
+
+      if (testerActive) {
+        btn.className = 'w-full py-2 px-3 text-xs font-bold rounded-lg bg-rose-600 hover:bg-rose-500 text-white flex items-center justify-center gap-1.5 shadow transition';
+        text.textContent = 'Apagar (OFF)';
+        sweepBadge.textContent = 'Secuencia activa';
+        sweepBadge.className = 'text-cyan-400 font-bold';
+        startTesterLoop();
+      } else {
+        btn.className = 'w-full py-2 px-3 text-xs font-bold rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center gap-1.5 shadow transition';
+        text.textContent = 'Encender (ON)';
+        sweepBadge.textContent = 'Apagado';
+        sweepBadge.className = 'text-slate-500';
+        stopTesterLoop();
+        resetTesterLeds();
+      }
+    }
+
+    function setTesterSpeed(mode) {
+      const btnSlow = document.getElementById('btnSpeedSlow');
+      const btnFast = document.getElementById('btnSpeedFast');
+
+      if (mode === 'slow') {
+        testerSpeed = 1200;
+        btnSlow.className = 'py-1.5 text-xs font-semibold rounded bg-cyan-950 border border-cyan-600 text-cyan-300';
+        btnFast.className = 'py-1.5 text-xs font-semibold rounded bg-slate-800 border border-slate-700 text-slate-300';
+      } else {
+        testerSpeed = 400;
+        btnFast.className = 'py-1.5 text-xs font-semibold rounded bg-cyan-950 border border-cyan-600 text-cyan-300';
+        btnSlow.className = 'py-1.5 text-xs font-semibold rounded bg-slate-800 border border-slate-700 text-slate-300';
+      }
+
+      if (testerActive) {
+        stopTesterLoop();
+        startTesterLoop();
+      }
+    }
+
+    function startTesterLoop() {
+      testerInterval = setInterval(() => {
+        executeTesterStep();
+      }, testerSpeed);
+    }
+
+    function stopTesterLoop() {
+      if (testerInterval) clearInterval(testerInterval);
+      testerInterval = null;
+    }
+
+    function resetTesterLeds() {
+      for (let i = 1; i <= 8; i++) {
+        const m = document.getElementById(`led-master-${i}`);
+        const r = document.getElementById(`led-remote-${i}`);
+        if (m) m.className = 'w-3.5 h-3.5 rounded-full led-off';
+        if (r) r.className = 'w-3.5 h-3.5 rounded-full led-off';
+      }
+      const mg = document.getElementById('led-master-g');
+      const rg = document.getElementById('led-remote-g');
+      if (mg) mg.className = 'w-3.5 h-3.5 rounded-full led-off';
+      if (rg) rg.className = 'w-3.5 h-3.5 rounded-full led-off';
+    }
+
+    function stepTesterOnce() {
+      if (!testerActive) {
+        toggleTesterPower();
+      }
+      executeTesterStep();
+    }
+
+    function executeTesterStep() {
+      resetTesterLeds();
+
+      const currentPin = testerStep % 8;
+      const displayPinNum = currentPin + 1;
+
+      // Master always pulses ascending 1..8
+      const masterLed = document.getElementById(`led-master-${displayPinNum}`);
+      if (masterLed) {
+        masterLed.className = 'w-3.5 h-3.5 rounded-full led-on-green';
+      }
+
+      const wireInMaster = connectorA[currentPin];
+      const diagEl = document.getElementById('technicalDiagnostics');
+
+      if (!wireInMaster) {
+        diagEl.textContent = `Paso Pin ${displayPinNum}: Sin conductor conectado en Extremo A.`;
+      } else {
+        const targetPinInB = connectorB.indexOf(wireInMaster);
+
+        if (targetPinInB === -1) {
+          diagEl.textContent = `Paso Pin ${displayPinNum} (${getWireName(wireInMaster)}): Circuito abierto. No hace contacto en Extremo B.`;
+        } else {
+          const remotePinNum = targetPinInB + 1;
+          const remoteLed = document.getElementById(`led-remote-${remotePinNum}`);
+          
+          if (remotePinNum === displayPinNum) {
+            if (remoteLed) remoteLed.className = 'w-3.5 h-3.5 rounded-full led-on-green';
+            diagEl.textContent = `Paso Pin ${displayPinNum} ──► Pin ${remotePinNum}: Continuidad directa correcta.`;
+          } else {
+            if (remoteLed) remoteLed.className = 'w-3.5 h-3.5 rounded-full led-on-amber';
+            diagEl.textContent = `Paso Pin ${displayPinNum} ──► Pin ${remotePinNum}: Transposición detectada (${getWireName(wireInMaster)} llega al pin ${remotePinNum}).`;
+          }
+        }
+      }
+
+      testerStep++;
+    }
+
+    function getWireName(id) {
+      const found = WIRE_TYPES.find(w => w.id === id);
+      return found ? found.name : id;
+    }
+
+    function calculatePhysicalGrade() {
+      const target = document.getElementById('targetCableType').value;
+      const stdA = detectStandard(connectorA);
+      const stdB = detectStandard(connectorB);
+
+      let physicalScore = 0;
+      let diagnosis = '';
+
+      if (target === 'straight_b') {
+        if (stdA.code === '568B' && stdB.code === '568B') {
+          physicalScore = 10;
+          diagnosis = 'Cumplido con éxito: Cable directo estándar 568B en ambos extremos.';
+        } else if (stdA.code === '568A' && stdB.code === '568A') {
+          physicalScore = 7;
+          diagnosis = 'Funcional pero no solicitado: Se armó 568A directo en lugar del objetivo 568B.';
+        } else {
+          physicalScore = Math.max(1, countMatchingWires('568B', '568B'));
+          diagnosis = 'Falla en el código de colores o falta de continuidad en pares.';
+        }
+      } else if (target === 'straight_a') {
+        if (stdA.code === '568A' && stdB.code === '568A') {
+          physicalScore = 10;
+          diagnosis = 'Cumplido con éxito: Cable directo estándar 568A en ambos extremos.';
+        } else if (stdA.code === '568B' && stdB.code === '568B') {
+          physicalScore = 7;
+          diagnosis = 'Funcional pero no solicitado: Se armó 568B directo en lugar de 568A.';
+        } else {
+          physicalScore = Math.max(1, countMatchingWires('568A', '568A'));
+          diagnosis = 'Falla en el código de colores o falta de continuidad en pares.';
+        }
+      } else if (target === 'crossover') {
+        if ((stdA.code === '568A' && stdB.code === '568B') || (stdA.code === '568B' && stdB.code === '568A')) {
+          physicalScore = 10;
+          diagnosis = 'Cumplido con éxito: Cable cruzado 568A/568B verificado.';
+        } else if (stdA.code === stdB.code && stdA.code !== 'custom') {
+          physicalScore = 4;
+          diagnosis = 'Falla grave: Se armó cable directo cuando el requerimiento era enlace Cruzado.';
+        } else {
+          physicalScore = 2;
+          diagnosis = 'Secuencia errónea en los pares de cruce.';
+        }
+      }
+
+      return { score: physicalScore, feedback: diagnosis };
+    }
+
+    function countMatchingWires(expectedA, expectedB) {
+      let matches = 0;
+      for (let i = 0; i < 8; i++) {
+        if (connectorA[i] === STANDARDS[expectedA][i]) matches += 0.5;
+        if (connectorB[i] === STANDARDS[expectedB][i]) matches += 0.5;
+      }
+      return Math.round(matches);
+    }
+
+    function updateLiveScore() {
+      const phys = calculatePhysicalGrade();
+      const totalScore = (phys.score * 0.6) + (quizFinalScore * 0.4);
+      document.getElementById('currentScoreBadge').textContent = `${totalScore.toFixed(1)} / 10.0`;
+      document.getElementById('finalGradeDisplay').textContent = totalScore.toFixed(1);
+    }
+
+    function validateCurrentCable() {
+      const phys = calculatePhysicalGrade();
+      const stdA = detectStandard(connectorA);
+      const stdB = detectStandard(connectorB);
+      const target = document.getElementById('targetCableType').value;
+
+      const totalGrade = (phys.score * 0.6) + (quizFinalScore * 0.4);
+
+      const attempt = {
+        id: attemptLogs.length + 1,
+        time: new Date().toLocaleTimeString(),
+        target: target,
+        extA: stdA.name,
+        extB: stdB.name,
+        physScore: phys.score,
+        totalGrade: totalGrade.toFixed(1),
+        feedback: phys.feedback
+      };
+
+      attemptLogs.push(attempt);
+      renderHistoryTable();
+      updatePedagogicalSummary(totalGrade, phys.feedback);
+      switchTab('tab-report');
+    }
+
+    function updatePedagogicalSummary(grade, physFeedback) {
+      const badge = document.getElementById('finalVerdictBadge');
+      const text = document.getElementById('pedagogicalFeedback');
+      const student = document.getElementById('studentName').value || 'Estudiante';
+
+      if (grade >= 7.0) {
+        badge.className = 'px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-emerald-950 border border-emerald-600 text-emerald-300';
+        badge.textContent = 'Aprobado / Certificado';
+      } else if (grade >= 4.0) {
+        badge.className = 'px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-amber-950 border border-amber-600 text-amber-300';
+        badge.textContent = 'En Proceso de Recuperación';
+      } else {
+        badge.className = 'px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider bg-rose-950 border border-rose-600 text-rose-300';
+        badge.textContent = 'Desaprobado - Requiere Rehacer';
+      }
+
+      text.innerHTML = `
+        <strong>Evaluación para ${escapeHtml(student)} (Cátedra: Prof. Berdun A.):</strong><br>
+        • Resultado de Armado Físico: <em>${escapeHtml(physFeedback)}</em>.<br>
+        • Rendimiento Teórico: Obtuviste ${quizFinalScore} de 10 puntos en la prueba conceptual.<br>
+        • Dictamen: ${grade >= 7 
+          ? 'Has demostrado destreza en la asignación de pines y cumplimiento de las normativas TIA-568. El cable cumple los estándares de canalización requeridos.' 
+          : 'Revisa la tabla de códigos de colores en la Guía de Trabajo Práctico, prestando especial atención al orden de pines 1, 2, 3 y 6 en ambos conectores.'}
+      `;
+    }
+
+    function renderHistoryTable() {
+      const tbody = document.getElementById('historyTableBody');
+      if (attemptLogs.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="7" class="p-4 text-center text-slate-500">No hay intentos registrados todavía.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = attemptLogs.map(item => `
+        <tr class="hover:bg-slate-900/50 transition">
+          <td class="p-2.5 font-mono text-cyan-400 font-bold">${item.id}</td>
+          <td class="p-2.5 text-slate-400">${item.time}</td>
+          <td class="p-2.5 font-medium text-slate-200">${escapeHtml(item.target)}</td>
+          <td class="p-2.5 font-mono text-xs">${escapeHtml(item.extA)}</td>
+          <td class="p-2.5 font-mono text-xs">${escapeHtml(item.extB)}</td>
+          <td class="p-2.5 text-slate-300">${escapeHtml(item.feedback)}</td>
+          <td class="p-2.5 font-mono font-bold ${item.totalGrade >= 7 ? 'text-emerald-400' : 'text-rose-400'}">${item.totalGrade}</td>
+        </tr>
+      `).join('');
+    }
+
+    function clearHistory() {
+      attemptLogs = [];
+      renderHistoryTable();
+    }
+
+    function renderQuiz() {
+      const container = document.getElementById('quizContainer');
+      container.innerHTML = QUIZ_QUESTIONS.map((q) => `
+        <div class="bg-slate-900/80 backdrop-blur border border-slate-800 rounded-xl p-4 flex flex-col gap-3 shadow-lg">
+          <div class="flex items-start gap-2">
+            <span class="px-2 py-0.5 rounded bg-slate-800 text-cyan-400 text-xs font-mono font-bold">P${q.id}</span>
+            <h3 class="text-sm font-semibold text-slate-100">${escapeHtml(q.question)}</h3>
+          </div>
+          <div class="space-y-2 mt-1">
+            ${q.options.map((opt, optIndex) => `
+              <label class="flex items-center gap-3 p-2.5 rounded-lg bg-slate-950/70 hover:bg-slate-800/80 border border-slate-800 cursor-pointer text-xs text-slate-300 transition">
+                <input type="radio" name="quiz_q_${q.id}" value="${optIndex}" class="text-cyan-500 focus:ring-cyan-500 bg-slate-900 border-slate-700">
+                <span>${escapeHtml(opt.text)}</span>
+              </label>
+            `).join('')}
+          </div>
+          <div id="quiz-feedback-${q.id}" class="hidden text-xs p-2.5 rounded bg-slate-950 border mt-1"></div>
+        </div>
+      `).join('');
+    }
+
+    function evaluateQuiz() {
+      let score = 0;
+
+      QUIZ_QUESTIONS.forEach(q => {
+        const selected = document.querySelector(`input[name="quiz_q_${q.id}"]:checked`);
+        const feedbackEl = document.getElementById(`quiz-feedback-${q.id}`);
+        feedbackEl.classList.remove('hidden');
+
+        if (selected) {
+          const selectedIdx = parseInt(selected.value, 10);
+          if (q.options[selectedIdx].correct) {
+            score += 2;
+            feedbackEl.className = 'text-xs p-2.5 rounded bg-emerald-950/60 border border-emerald-700 text-emerald-300 mt-1';
+            feedbackEl.innerHTML = `<strong>Correcto:</strong> ${escapeHtml(q.explanation)}`;
+          } else {
+            feedbackEl.className = 'text-xs p-2.5 rounded bg-rose-950/60 border border-rose-700 text-rose-300 mt-1';
+            feedbackEl.innerHTML = `<strong>Incorrecto:</strong> ${escapeHtml(q.explanation)}`;
+          }
+        } else {
+          feedbackEl.className = 'text-xs p-2.5 rounded bg-amber-950/60 border border-amber-700 text-amber-300 mt-1';
+          feedbackEl.innerHTML = `<strong>Sin responder:</strong> ${escapeHtml(q.explanation)}`;
+        }
+      });
+
+      quizFinalScore = score;
+      document.getElementById('quizScoreText').textContent = `${quizFinalScore} / 10 pts`;
+      updateLiveScore();
+    }
+
+    function downloadCSVReport() {
+      const student = document.getElementById('studentName').value || 'Alumno_Sin_Nombre';
+      const course = document.getElementById('studentCourse').value || 'Curso_No_Especificado';
+      const target = document.getElementById('targetCableType').value;
+      const phys = calculatePhysicalGrade();
+      const finalGrade = ((phys.score * 0.6) + (quizFinalScore * 0.4)).toFixed(1);
+      const timeSpent = document.getElementById('examTimer').textContent;
+
+      let csv = '\uFEFF'; // UTF-8 BOM
+      csv += 'REPORTE OFICIAL DE LABORATORIO DE REDES - PROFESOR BERDUN A.\n';
+      csv += 'SIMULADOR Y CERTIFICACION DE CABLEADO UTP ANSI/TIA/EIA-568\n\n';
+      csv += `Docente Titular,"Profesor Berdun A."\n`;
+      csv += `Fecha y Hora,${new Date().toLocaleString()}\n`;
+      csv += `Estudiante,${sanitizeCsv(student)}\n`;
+      csv += `Curso / Division,${sanitizeCsv(course)}\n`;
+      csv += `Tiempo Total de Examen,${timeSpent}\n`;
+      csv += `Objetivo de Cableado,${target}\n`;
+      csv += `Nota Practica de Crimpado (60%),${phys.score}/10\n`;
+      csv += `Nota Examen Teorico (40%),${quizFinalScore}/10\n`;
+      csv += `CALIFICACION DEFINITIVA,${finalGrade}/10\n`;
+      csv += `Dictamen Tecnico,${sanitizeCsv(phys.feedback)}\n\n`;
+
+      csv += 'REGISTRO DETALLADO DE ENSAYOS\n';
+      csv += 'Intento,Hora,Objetivo,Extremo A,Extremo B,Resultado Fisico,Nota Final\n';
+
+      if (attemptLogs.length > 0) {
+        attemptLogs.forEach(log => {
+          csv += `${log.id},${log.time},${sanitizeCsv(log.target)},${sanitizeCsv(log.extA)},${sanitizeCsv(log.extB)},${sanitizeCsv(log.feedback)},${log.totalGrade}\n`;
+        });
+      } else {
+        csv += `1,${new Date().toLocaleTimeString()},${sanitizeCsv(target)},${sanitizeCsv(detectStandard(connectorA).name)},${sanitizeCsv(detectStandard(connectorB).name)},${sanitizeCsv(phys.feedback)},${finalGrade}\n`;
+      }
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.setAttribute('href', url);
+      link.setAttribute('download', `Reporte_Prof_Berdun_${student.replace(/\s+/g, '_')}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    function sanitizeCsv(str) {
+      if (!str) return '""';
+      return `"${String(str).replace(/"/g, '""')}"`;
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#039;');
+    }
+
+    function startTimer() {
+      timerInterval = setInterval(() => {
+        if (timerRunning) {
+          timerSeconds++;
+          const mins = String(Math.floor(timerSeconds / 60)).padStart(2, '0');
+          const secs = String(timerSeconds % 60).padStart(2, '0');
+          document.getElementById('examTimer').textContent = `${mins}:${secs}`;
+        }
+      }, 1000);
+
+      document.getElementById('btnToggleTimer').addEventListener('click', () => {
+        timerRunning = !timerRunning;
+        document.getElementById('btnToggleTimer').textContent = timerRunning ? 'Pausar' : 'Reanudar';
+      });
+
+      document.getElementById('btnResetTimer').addEventListener('click', () => {
+        timerSeconds = 0;
+        document.getElementById('examTimer').textContent = '00:00';
+      });
+    }
+
+    function setupTabs() {
+      const tabs = document.querySelectorAll('.nav-tab');
+      tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+          const targetId = tab.dataset.target;
+          switchTab(targetId);
+        });
+      });
+    }
+
+    function switchTab(targetId) {
+      document.querySelectorAll('.nav-tab').forEach(t => {
+        if (t.dataset.target === targetId) {
+          t.className = 'nav-tab active flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-t-lg bg-slate-800 text-cyan-400 border-b-2 border-cyan-400';
+        } else {
+          t.className = 'nav-tab flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-t-lg text-slate-400 hover:text-slate-200 hover:bg-slate-900';
+        }
+      });
+
+      document.querySelectorAll('.tab-pane').forEach(p => {
+        if (p.id === targetId) {
+          p.classList.remove('hidden');
+        } else {
+          p.classList.add('hidden');
+        }
+      });
+    }
+
+    function setupGuideModal() {
+      const btnOpen = document.getElementById('btnOpenGuide');
+      const btnClose = document.getElementById('btnCloseGuide');
+      btnOpen.addEventListener('click', () => toggleGuide(true));
+      btnClose.addEventListener('click', () => toggleGuide(false));
+      document.getElementById('btnExportCsv').addEventListener('click', downloadCSVReport);
+    }
+
+    function toggleGuide(show) {
+      const modal = document.getElementById('guideModal');
+      if (show) modal.classList.remove('hidden');
+      else modal.classList.add('hidden');
+    }
+  </script>
+</body>
+</html>
